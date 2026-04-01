@@ -1,0 +1,84 @@
+"""Pydantic request/response models shared across routes and graph."""
+
+from __future__ import annotations
+from pydantic import BaseModel, Field
+from typing import Any, Literal, Optional
+
+
+# ---------------------------------------------------------------------------
+# API I/O
+# ---------------------------------------------------------------------------
+
+
+class AnswerRequest(BaseModel):
+    value: Any = Field(..., description="The user's answer to the current question.")
+
+
+class Question(BaseModel):
+    key: str
+    text: str
+    type: Literal["currency", "number", "percentage", "yesno"]
+    default: Optional[Any] = None
+    hint: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Calculation result
+# ---------------------------------------------------------------------------
+
+
+class TaxBreakdown(BaseModel):
+    recapture_income: float
+    capital_gain: float
+    taxable_capital_gain: float
+    federal_tax: float
+    provincial_tax: float
+    total_tax: float
+
+
+class SellYearPoint(BaseModel):
+    year: int
+    value: float
+
+
+class KeepYearPoint(BaseModel):
+    year: int
+    property_value: float
+    mortgage_balance: float
+    equity: float
+    annual_cash_flow: float
+    cumulative_cash_flow: float
+    total: float
+
+
+class ResultSummary(BaseModel):
+    selling_costs: float
+    tax_breakdown: TaxBreakdown
+    sell_net_proceeds: float
+    sell_year_10: float
+    keep_equity_year_10: float
+    keep_cumulative_cf_year_10: float
+    keep_total_year_10: float
+    recommendation: Literal["sell", "keep", "similar"]
+    recommendation_delta: float  # absolute difference in favour of recommendation
+
+
+class CalculationResult(BaseModel):
+    summary: ResultSummary
+    sell_series: list[SellYearPoint]
+    keep_series: list[KeepYearPoint]
+
+
+# ---------------------------------------------------------------------------
+# Session responses
+# ---------------------------------------------------------------------------
+
+
+class SessionCreatedResponse(BaseModel):
+    session_id: str
+    question: Question
+
+
+class AnswerResponse(BaseModel):
+    question: Optional[Question] = None
+    result: Optional[CalculationResult] = None

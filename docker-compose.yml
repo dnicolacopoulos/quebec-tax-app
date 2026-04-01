@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # VITE_API_BASE is baked into the JS bundle at build time.
+        # This must match where the browser can reach the backend,
+        # i.e. via the host machine's localhost — NOT the container name.
+        VITE_API_BASE: http://localhost:8000/api
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
