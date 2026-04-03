@@ -14,6 +14,24 @@ class AnswerRequest(BaseModel):
     value: Any = Field(..., description="The user's answer to the current question.")
 
 
+class CalculateRequest(BaseModel):
+    inherited: bool = False
+    fmv_at_death: Optional[float] = None
+    user_acb: Optional[float] = None
+    sale_price: float
+    selling_costs_pct: float = 5.0
+    cca_claimed: bool = False
+    original_cost: Optional[float] = None
+    ucc: Optional[float] = None
+    monthly_gross_rent: float
+    monthly_expenses: float
+    has_mortgage: bool = False
+    mortgage_balance: Optional[float] = None
+    mortgage_annual_rate: Optional[float] = None
+    mortgage_months_remaining: Optional[int] = None
+    other_annual_income: float = 0.0
+
+
 class Question(BaseModel):
     key: str
     text: str

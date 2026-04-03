@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException
 from app.models.schemas import (
     AnswerRequest,
     AnswerResponse,
+    CalculateRequest,
     CalculationResult,
     SessionCreatedResponse,
 )
@@ -114,9 +115,7 @@ def submit_answer(session_id: str, body: AnswerRequest) -> AnswerResponse:
     if q:
         state.setdefault("history", [])
         state["history"].append({"role": "assistant", "text": q.text})
-        display = (
-            "Yes" if coerced is True else ("No" if coerced is False else str(coerced))
-        )
+        display = "Yes" if coerced is True else ("No" if coerced is False else str(coerced))
         state["history"].append({"role": "user", "text": display})
 
     # Determine next step
@@ -131,9 +130,40 @@ def submit_answer(session_id: str, body: AnswerRequest) -> AnswerResponse:
 
     if target == "done":
         # Should not happen without going through calculate, but guard anyway
-        raise HTTPException(
-            status_code=500, detail="Unexpected state: done without result."
-        )
+        raise HTTPException(status_code=500, detail="Unexpected state: done without result.")
 
     state["step"] = target
     return AnswerResponse(question=QUESTIONS[target])
+
+
+# ---------------------------------------------------------------------------
+# Direct calculation endpoint (form-based, no session required)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/calculate", response_model=CalculationResult)
+def calculate(body: CalculateRequest) -> CalculationResult:
+    state: PropertyState = {
+        "step": "other_annual_income",
+        "history": [],
+        "inherited": body.inherited,
+        "fmv_at_death": body.fmv_at_death,
+        "user_acb": body.user_acb,
+        "sale_price": body.sale_price,
+        "selling_costs_pct": body.selling_costs_pct,
+        "cca_claimed": body.cca_claimed,
+        "original_cost": body.original_cost,
+        "ucc": body.ucc,
+        "monthly_gross_rent": body.monthly_gross_rent,
+        "monthly_expenses": body.monthly_expenses,
+        "has_mortgage": body.has_mortgage,
+        "mortgage_balance": body.mortgage_balance,
+        "mortgage_annual_rate": body.mortgage_annual_rate,
+        "mortgage_months_remaining": body.mortgage_months_remaining,
+        "other_annual_income": body.other_annual_income,
+    }
+    node_calculate(state)
+    result_raw = state.get("result")
+    if result_raw is None:
+        raise HTTPException(status_code=500, detail="Calculation produced no result.")
+    return CalculationResult(**result_raw)

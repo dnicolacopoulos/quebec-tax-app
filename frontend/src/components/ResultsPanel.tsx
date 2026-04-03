@@ -95,7 +95,7 @@ export default function ResultsPanel({ result, onReset }: Props) {
                 onClick={onReset}
                 className="w-full py-3 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 transition-colors text-sm"
             >
-                Start Over
+                Clear Results
             </button>
         </div>
     );

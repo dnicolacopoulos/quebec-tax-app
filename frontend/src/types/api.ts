@@ -14,6 +14,24 @@ export interface AnswerRequest {
   value: number | boolean | string;
 }
 
+export interface CalculateRequest {
+  inherited: boolean;
+  fmv_at_death?: number | null;
+  user_acb?: number | null;
+  sale_price: number;
+  selling_costs_pct: number;
+  cca_claimed: boolean;
+  original_cost?: number | null;
+  ucc?: number | null;
+  monthly_gross_rent: number;
+  monthly_expenses: number;
+  has_mortgage: boolean;
+  mortgage_balance?: number | null;
+  mortgage_annual_rate?: number | null;
+  mortgage_months_remaining?: number | null;
+  other_annual_income: number;
+}
+
 // --- Result types ---
 
 export interface TaxBreakdown {
