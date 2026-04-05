@@ -58,3 +58,15 @@ down: ## Stop all services
 .PHONY: logs
 logs: ## Tail logs from all services
 	docker compose logs -f
+
+.PHONY: dev
+dev: ## Start all services with hot-reloading (dev mode)
+	docker compose -f docker-compose.dev.yml up --build
+
+.PHONY: dev-d
+dev-d: ## Start all services with hot-reloading, detached (dev mode)
+	docker compose -f docker-compose.dev.yml up --build -d
+
+.PHONY: dev-down
+dev-down: ## Stop dev services
+	docker compose -f docker-compose.dev.yml down
