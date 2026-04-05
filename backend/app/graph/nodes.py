@@ -15,10 +15,11 @@ from app.graph.state import PropertyState
 from app.calculators.capital_gains import (
     compute_acb,
     compute_capital_gain,
+    compute_pre_exempt_fraction,
     compute_taxable_capital_gain,
 )
 from app.calculators.cca import compute_recapture, compute_terminal_loss
-from app.calculators.tax import marginal_tax_on_income
+from app.calculators.tax import marginal_tax_on_income, compute_oas_clawback
 from app.calculators.keep_scenario import project_keep
 from app.calculators.sell_scenario import project_sell
 
@@ -56,6 +57,30 @@ QUESTIONS: dict[str, Question] = {
         type="percentage",
         default=5.0,
         hint="Typically 4–7%. Defaults to 5%.",
+    ),
+    "principal_residence": Question(
+        key="principal_residence",
+        text="Was this property ever your principal residence?",
+        type="yesno",
+        hint="If yes, part or all of the capital gain may be tax-exempt.",
+    ),
+    "years_principal_residence": Question(
+        key="years_principal_residence",
+        text="How many years was it designated as your principal residence?",
+        type="number",
+        hint="Count only years you ordinarily inhabited it as your main home.",
+    ),
+    "years_owned": Question(
+        key="years_owned",
+        text="How many years have you owned the property in total?",
+        type="number",
+    ),
+    "pre_use_pct": Question(
+        key="pre_use_pct",
+        text="What percentage of the property was used as your principal residence?",
+        type="percentage",
+        default=100.0,
+        hint="Use 100% if the entire property was your home. For a duplex where you occupied one unit, enter the portion (e.g. 40 for 40%).",
     ),
     "cca_claimed": Question(
         key="cca_claimed",
@@ -113,6 +138,13 @@ QUESTIONS: dict[str, Question] = {
         type="currency",
         default=0.0,
         hint="Used to determine your marginal tax bracket.",
+    ),
+    "seller_age": Question(
+        key="seller_age",
+        text="What is the seller's age?",
+        type="number",
+        default=0,
+        hint="OAS clawback (15% recovery tax) applies if age is 65 or older and net income exceeds the annual threshold.",
     ),
 }
 
@@ -234,29 +266,35 @@ def node_calculate(state: PropertyState) -> PropertyState:
         cca_claimed=cca_claimed,
         original_cost=original_cost,
     )
-    taxable_cg = compute_taxable_capital_gain(capital_gain)
+
+    # Principal Residence Exemption (shelters capital gain only — not recapture)
+    pre_exempt_fraction = 0.0
+    if s.get("principal_residence"):
+        years_pr = s.get("years_principal_residence") or 0
+        years_owned = s.get("years_owned") or 0
+        pre_use_pct: float = float(s.get("pre_use_pct") or 100.0)
+        pre_exempt_fraction = compute_pre_exempt_fraction(years_pr, years_owned, pre_use_pct)
+    pre_exempt_gain = round(capital_gain * pre_exempt_fraction, 2)
+
+    taxable_cg = compute_taxable_capital_gain(capital_gain, pre_exempt_fraction)
 
     # Total additional taxable income stacked on other_income
     # Recapture is 100% income; capital gain uses 50% inclusion
     taxable_additional = recapture + taxable_cg - terminal_loss
-    tax_breakdown_raw = marginal_tax_on_income(
-        other_income, max(0.0, taxable_additional)
-    )
+    tax_breakdown_raw = marginal_tax_on_income(other_income, max(0.0, taxable_additional))
 
-    total_tax = tax_breakdown_raw["total"]
+    # OAS clawback — applies only if seller is 65+
+    seller_age = s.get("seller_age") or 0
+    oas_clawback = compute_oas_clawback(other_income, max(0.0, taxable_additional), seller_age)
+
+    total_tax = tax_breakdown_raw["total"] + oas_clawback
 
     has_mortgage = s.get("has_mortgage") or False
     mortgage_balance = (s.get("mortgage_balance") or 0.0) if has_mortgage else 0.0
-    mortgage_annual_rate = (
-        ((s.get("mortgage_annual_rate") or 0.0) / 100.0) if has_mortgage else 0.0
-    )
-    mortgage_months_remaining = (
-        (s.get("mortgage_months_remaining") or 0) if has_mortgage else 0
-    )
+    mortgage_annual_rate = ((s.get("mortgage_annual_rate") or 0.0) / 100.0) if has_mortgage else 0.0
+    mortgage_months_remaining = (s.get("mortgage_months_remaining") or 0) if has_mortgage else 0
 
-    sell_net_proceeds = max(
-        0.0, sale_price - selling_costs - mortgage_balance - total_tax
-    )
+    sell_net_proceeds = max(0.0, sale_price - selling_costs - mortgage_balance - total_tax)
 
     # Projections
     sell_series = project_sell(sell_net_proceeds)
@@ -289,17 +327,17 @@ def node_calculate(state: PropertyState) -> PropertyState:
             "tax_breakdown": {
                 "recapture_income": round(recapture, 2),
                 "capital_gain": round(capital_gain, 2),
+                "pre_exempt_gain": pre_exempt_gain,
                 "taxable_capital_gain": round(taxable_cg, 2),
                 "federal_tax": round(tax_breakdown_raw["federal"], 2),
                 "provincial_tax": round(tax_breakdown_raw["provincial"], 2),
+                "oas_clawback": round(oas_clawback, 2),
                 "total_tax": round(total_tax, 2),
             },
             "sell_net_proceeds": round(sell_net_proceeds, 2),
             "sell_year_10": round(sell_year_10, 2),
             "keep_equity_year_10": round(keep_year_10["equity"], 2),
-            "keep_cumulative_cf_year_10": round(
-                keep_year_10["cumulative_cash_flow"], 2
-            ),
+            "keep_cumulative_cf_year_10": round(keep_year_10["cumulative_cash_flow"], 2),
             "keep_total_year_10": round(keep_total_year_10, 2),
             "recommendation": recommendation,
             "recommendation_delta": round(abs(delta), 2),

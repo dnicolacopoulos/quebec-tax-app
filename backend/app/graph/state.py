@@ -16,6 +16,12 @@ class PropertyState(TypedDict, total=False):
     sale_price: float | None
     selling_costs_pct: float | None  # percentage, e.g. 5.0
 
+    # ---- principal residence exemption ----
+    principal_residence: bool | None
+    pre_use_pct: float | None          # % of property used as PR (default 100)
+    years_principal_residence: int | None
+    years_owned: int | None
+
     # ---- CCA ----
     cca_claimed: bool | None
     ucc: float | None
@@ -33,6 +39,7 @@ class PropertyState(TypedDict, total=False):
 
     # ---- other income ----
     other_annual_income: float | None
+    seller_age: int | None
 
     # ---- output ----
     result: dict[str, Any] | None

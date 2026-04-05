@@ -6,6 +6,11 @@ from .tax_config import (
     QUEBEC_BRACKETS_2026,
     QUEBEC_BPA_2026,
     QUEBEC_ABATEMENT,
+    OAS_CLAWBACK_THRESHOLD_2026,
+    OAS_CLAWBACK_RATE,
+    OAS_MINIMUM_AGE,
+    OAS_MAX_ANNUAL_65_74,
+    OAS_MAX_ANNUAL_75_PLUS,
     Bracket,
 )
 
@@ -107,3 +112,33 @@ def marginal_tax_on_income(base_income: float, additional_income: float) -> dict
         "provincial": max(0.0, prov_total - prov_base),
         "total": max(0.0, (fed_total + prov_total) - (fed_base + prov_base)),
     }
+
+
+def compute_oas_clawback(base_income: float, additional_income: float, age: int) -> float:
+    """
+    Compute the OAS Recovery Tax ("clawback") attributable to the disposition.
+
+    The CRA requires OAS recipients to repay 15 cents of benefit for every
+    dollar of net income above the annual threshold, up to the full benefit
+    received.  The clawback is triggered only for taxpayers aged 65+.
+
+    This function calculates the incremental clawback caused by stacking the
+    disposition income on top of the seller's other annual income.
+
+    Args:
+        base_income:       Other annual taxable income before the disposition.
+        additional_income: Extra income from the disposition (recapture + taxable CG).
+        age:               Seller's age at time of sale.
+
+    Returns:
+        OAS clawback amount in CAD (≥ 0).
+    """
+    if age < OAS_MINIMUM_AGE:
+        return 0.0
+    max_oas = OAS_MAX_ANNUAL_75_PLUS if age >= 75 else OAS_MAX_ANNUAL_65_74
+    total_income = base_income + additional_income
+    # Clawback on total income above threshold, minus any clawback already
+    # incurred on base income alone (so we return only the incremental portion)
+    clawback_on_total = min(max_oas, max(0.0, total_income - OAS_CLAWBACK_THRESHOLD_2026) * OAS_CLAWBACK_RATE)
+    clawback_on_base = min(max_oas, max(0.0, base_income - OAS_CLAWBACK_THRESHOLD_2026) * OAS_CLAWBACK_RATE)
+    return max(0.0, clawback_on_total - clawback_on_base)

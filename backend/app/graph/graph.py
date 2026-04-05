@@ -44,6 +44,18 @@ def next_step(state: PropertyState) -> str:
         return "selling_costs_pct"
 
     if step == "selling_costs_pct":
+        return "principal_residence"
+
+    if step == "principal_residence":
+        return "years_principal_residence" if state.get("principal_residence") else "cca_claimed"
+
+    if step == "years_principal_residence":
+        return "years_owned"
+
+    if step == "years_owned":
+        return "pre_use_pct"
+
+    if step == "pre_use_pct":
         return "cca_claimed"
 
     if step == "cca_claimed":
@@ -62,9 +74,7 @@ def next_step(state: PropertyState) -> str:
         return "has_mortgage"
 
     if step == "has_mortgage":
-        return (
-            "mortgage_balance" if state.get("has_mortgage") else "other_annual_income"
-        )
+        return "mortgage_balance" if state.get("has_mortgage") else "other_annual_income"
 
     if step == "mortgage_balance":
         return "mortgage_annual_rate"
@@ -76,6 +86,9 @@ def next_step(state: PropertyState) -> str:
         return "other_annual_income"
 
     if step == "other_annual_income":
+        return "seller_age"
+
+    if step == "seller_age":
         return "calculate"
 
     return "done"

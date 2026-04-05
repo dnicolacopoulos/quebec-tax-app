@@ -12,6 +12,9 @@ type FormData = Partial<CalculateRequest> & {
   has_mortgage: boolean;
   selling_costs_pct: number;
   other_annual_income: number;
+  seller_age: number;
+  principal_residence: boolean;
+  pre_use_pct: number;
 };
 
 const DEFAULT_FORM: FormData = {
@@ -20,6 +23,9 @@ const DEFAULT_FORM: FormData = {
   has_mortgage: false,
   selling_costs_pct: 5.0,
   other_annual_income: 0,
+  seller_age: 0,
+  principal_residence: false,
+  pre_use_pct: 100,
 };
 
 export function useCalculate() {
@@ -44,6 +50,11 @@ export function useCalculate() {
           next.mortgage_balance = undefined;
           next.mortgage_annual_rate = undefined;
           next.mortgage_months_remaining = undefined;
+        }
+        if (key === 'principal_residence' && !value) {
+          next.years_principal_residence = undefined;
+          next.years_owned = undefined;
+          next.pre_use_pct = 100;
         }
         return next;
       });

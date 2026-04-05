@@ -65,8 +65,8 @@ def _get_session(session_id: str) -> PropertyState:
 # Coerce raw answer value to the correct Python type for a given step
 # ---------------------------------------------------------------------------
 
-_BOOLEAN_STEPS = {"inherited", "cca_claimed", "has_mortgage"}
-_INT_STEPS = {"mortgage_months_remaining"}
+_BOOLEAN_STEPS = {"inherited", "cca_claimed", "has_mortgage", "principal_residence"}
+_INT_STEPS = {"mortgage_months_remaining", "years_principal_residence", "years_owned", "seller_age"}
 
 
 def _coerce(step: str, raw: Any) -> Any:
@@ -161,6 +161,11 @@ def calculate(body: CalculateRequest) -> CalculationResult:
         "mortgage_annual_rate": body.mortgage_annual_rate,
         "mortgage_months_remaining": body.mortgage_months_remaining,
         "other_annual_income": body.other_annual_income,
+        "seller_age": body.seller_age,
+        "principal_residence": body.principal_residence,
+        "pre_use_pct": body.pre_use_pct,
+        "years_principal_residence": body.years_principal_residence,
+        "years_owned": body.years_owned,
     }
     node_calculate(state)
     result_raw = state.get("result")

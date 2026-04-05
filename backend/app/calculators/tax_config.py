@@ -60,6 +60,25 @@ CAPITAL_GAINS_INCLUSION: float = 0.50
 # because Quebec operates its own provincial tax system independently.
 QUEBEC_ABATEMENT: float = 0.165
 
+# ---------------------------------------------------------------------------
+# OAS Recovery Tax ("clawback") — 2026 estimates
+# The annual threshold is indexed to CPI each year; values below are
+# approximate for the 2026 income year pending CRA confirmation.
+# ---------------------------------------------------------------------------
+
+# Net-income threshold above which OAS repayment begins (2026 estimate)
+OAS_CLAWBACK_THRESHOLD_2026: float = 93_454.00
+
+# Rate at which OAS is repaid on each dollar of income above the threshold
+OAS_CLAWBACK_RATE: float = 0.15
+
+# Minimum age for OAS eligibility (therefore clawback exposure)
+OAS_MINIMUM_AGE: int = 65
+
+# Maximum annual OAS benefit (approximate 2026 quarterly-indexed estimates)
+OAS_MAX_ANNUAL_65_74: float = 8_732.00   # ~$727.67/month
+OAS_MAX_ANNUAL_75_PLUS: float = 9_605.00  # ~$800.44/month (10% supplement, age 75+)
+
 # Default property appreciation rate (Keep scenario)
 PROPERTY_APPRECIATION_RATE: float = 0.03
 

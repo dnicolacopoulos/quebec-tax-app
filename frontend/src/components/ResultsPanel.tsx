@@ -57,9 +57,15 @@ export default function ResultsPanel({ result, onReset }: Props) {
                             ['Selling costs', fmt(summary.selling_costs)],
                             ['CCA Recapture (100% income)', fmt(td.recapture_income)],
                             ['Capital gain', fmt(td.capital_gain)],
+                            ...(td.pre_exempt_gain > 0
+                                ? [['PRE exempt gain (tax-free)', `(${fmt(td.pre_exempt_gain)})`] as [string, string]]
+                                : []),
                             [`Taxable capital gain (50%)`, fmt(td.taxable_capital_gain)],
                             ['Federal tax (after abatement)', fmt(td.federal_tax)],
                             ['Quebec provincial tax', fmt(td.provincial_tax)],
+                            ...(td.oas_clawback > 0
+                                ? [['OAS Recovery Tax (clawback)', fmt(td.oas_clawback)] as [string, string]]
+                                : []),
                             ['Total tax', fmt(td.total_tax)],
                             ['Net proceeds after tax & mortgage', fmt(summary.sell_net_proceeds)],
                         ].map(([label, value]) => (

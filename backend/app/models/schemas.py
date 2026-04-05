@@ -30,6 +30,11 @@ class CalculateRequest(BaseModel):
     mortgage_annual_rate: Optional[float] = None
     mortgage_months_remaining: Optional[int] = None
     other_annual_income: float = 0.0
+    seller_age: int = 0
+    principal_residence: bool = False
+    pre_use_pct: float = 100.0
+    years_principal_residence: Optional[int] = None
+    years_owned: Optional[int] = None
 
 
 class Question(BaseModel):
@@ -48,9 +53,11 @@ class Question(BaseModel):
 class TaxBreakdown(BaseModel):
     recapture_income: float
     capital_gain: float
-    taxable_capital_gain: float
+    pre_exempt_gain: float          # portion of capital gain sheltered by PRE
+    taxable_capital_gain: float     # after PRE + 50% inclusion
     federal_tax: float
     provincial_tax: float
+    oas_clawback: float             # incremental OAS recovery tax (0 if age < 65)
     total_tax: float
 
 

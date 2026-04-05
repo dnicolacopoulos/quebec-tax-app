@@ -30,6 +30,11 @@ export interface CalculateRequest {
   mortgage_annual_rate?: number | null;
   mortgage_months_remaining?: number | null;
   other_annual_income: number;
+  seller_age: number;
+  principal_residence: boolean;
+  pre_use_pct: number;
+  years_principal_residence?: number | null;
+  years_owned?: number | null;
 }
 
 // --- Result types ---
@@ -37,9 +42,11 @@ export interface CalculateRequest {
 export interface TaxBreakdown {
   recapture_income: number;
   capital_gain: number;
+  pre_exempt_gain: number;
   taxable_capital_gain: number;
   federal_tax: number;
   provincial_tax: number;
+  oas_clawback: number;
   total_tax: number;
 }
 

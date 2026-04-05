@@ -6,6 +6,7 @@ import pytest
 from app.calculators.capital_gains import (
     compute_acb,
     compute_capital_gain,
+    compute_pre_exempt_fraction,
     compute_taxable_capital_gain,
 )
 from app.calculators.cca import compute_recapture, compute_terminal_loss
@@ -138,6 +139,94 @@ class TestComputeTaxableCapitalGain:
     def test_inclusion_rate_is_half(self):
         # Verify the constant itself is 0.50
         assert CAPITAL_GAINS_INCLUSION == pytest.approx(0.50)
+
+
+# ---------------------------------------------------------------------------
+# compute_pre_exempt_fraction
+# ---------------------------------------------------------------------------
+
+
+class TestComputePreExemptFraction:
+    def test_fully_exempt(self):
+        # Owned 10 years, all 10 designated as PR
+        # fraction = min(1, (1 + 10) / 10) = min(1, 1.1) = 1.0
+        assert compute_pre_exempt_fraction(10, 10) == pytest.approx(1.0)
+
+    def test_partially_exempt(self):
+        # Owned 10 years, 5 designated as PR
+        # fraction = (1 + 5) / 10 = 0.6
+        assert compute_pre_exempt_fraction(5, 10) == pytest.approx(0.6)
+
+    def test_one_plus_bonus_year(self):
+        # Owned 10 years, 9 designated → (1+9)/10 = 1.0 (fully exempt due to +1 CRA bonus)
+        assert compute_pre_exempt_fraction(9, 10) == pytest.approx(1.0)
+
+    def test_zero_years_pr(self):
+        # Never designated — only the +1 bonus applies
+        assert compute_pre_exempt_fraction(0, 10) == pytest.approx(1 / 10)
+
+    def test_capped_at_one(self):
+        # More PR years than owned — still capped at 1.0
+        assert compute_pre_exempt_fraction(20, 10) == pytest.approx(1.0)
+
+    def test_zero_years_owned(self):
+        assert compute_pre_exempt_fraction(5, 0) == pytest.approx(0.0)
+
+    def test_negative_pr_years(self):
+        assert compute_pre_exempt_fraction(-1, 10) == pytest.approx(0.0)
+
+    def test_fraction_in_range(self):
+        frac = compute_pre_exempt_fraction(3, 15)
+        assert 0.0 <= frac <= 1.0
+
+    # ---- partial-use (pre_use_pct) ----
+
+    def test_full_property_100pct_unchanged(self):
+        # pre_use_pct=100 (default) should behave identically to the 2-arg form
+        assert compute_pre_exempt_fraction(5, 10, 100.0) == pytest.approx(0.6)
+
+    def test_duplex_40pct(self):
+        # 5 PR years, 10 owned, 40% of duplex occupied → 0.6 * 0.4 = 0.24
+        assert compute_pre_exempt_fraction(5, 10, 40.0) == pytest.approx(0.6 * 0.4)
+
+    def test_zero_pct_no_exemption(self):
+        assert compute_pre_exempt_fraction(5, 10, 0.0) == pytest.approx(0.0)
+
+    def test_partial_use_capped_at_one(self):
+        # Even with 200% PR years the combined fraction cannot exceed 1.0
+        assert compute_pre_exempt_fraction(20, 10, 100.0) == pytest.approx(1.0)
+
+    def test_partial_use_fraction_in_range(self):
+        frac = compute_pre_exempt_fraction(5, 10, 60.0)
+        assert 0.0 <= frac <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# compute_taxable_capital_gain  (with PRE)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeTaxableCapitalGainWithPre:
+    def test_fully_exempt_zero_taxable(self):
+        assert compute_taxable_capital_gain(300_000.0, pre_exempt_fraction=1.0) == pytest.approx(0.0)
+
+    def test_no_pre_same_as_50_pct(self):
+        assert compute_taxable_capital_gain(200_000.0, pre_exempt_fraction=0.0) == pytest.approx(200_000.0 * 0.50)
+
+    def test_partial_pre_60_pct(self):
+        # 60% exempt → 40% taxable × 50% inclusion = 20% of original gain
+        gain = 100_000.0
+        taxable = compute_taxable_capital_gain(gain, pre_exempt_fraction=0.6)
+        assert taxable == pytest.approx(gain * (1 - 0.6) * 0.50)
+
+    def test_zero_gain_with_pre(self):
+        assert compute_taxable_capital_gain(0.0, pre_exempt_fraction=0.8) == pytest.approx(0.0)
+
+    def test_recapture_is_independent(self):
+        # PRE cannot shelter recapture — recapture is passed separately to marginal_tax_on_income.
+        # Full PRE on the capital gain leaves zero taxable CG;
+        # any recapture is still 100% taxable (handled in node_calculate, not here).
+        assert compute_taxable_capital_gain(200_000.0, pre_exempt_fraction=1.0) == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------

@@ -170,6 +170,9 @@ type FormData = Partial<CalculateRequest> & {
     has_mortgage: boolean;
     selling_costs_pct: number;
     other_annual_income: number;
+    seller_age: number;
+    principal_residence: boolean;
+    pre_use_pct: number;
 };
 
 function isValid(f: FormData): boolean {
@@ -179,6 +182,8 @@ function isValid(f: FormData): boolean {
     if (f.cca_claimed && (!f.original_cost || !f.ucc)) return false;
     if (!f.monthly_gross_rent) return false;
     if (f.has_mortgage && (!f.mortgage_balance || !f.mortgage_annual_rate || !f.mortgage_months_remaining)) return false;
+    if (f.principal_residence && (!f.years_principal_residence || !f.years_owned)) return false;
+    if (!f.seller_age && f.seller_age !== 0) return false;
     return true;
 }
 
@@ -333,13 +338,61 @@ export default function PropertyForm({ formData, loading, error, updateField, on
 
             {/* Tax Profile */}
             <Section title="Tax Profile">
-                <CurrencyInput
-                    id="other_annual_income"
-                    label="Other annual taxable income (employment, pension, etc.)"
-                    hint="Used to determine your marginal tax bracket. Leave 0 if none."
-                    value={formData.other_annual_income || undefined}
-                    onChange={(v) => updateField('other_annual_income', v ?? 0)}
+                <Row>
+                    <CurrencyInput
+                        id="other_annual_income"
+                        label="Other annual taxable income"
+                        hint="Employment, pension, etc. Used to determine your marginal bracket. Leave 0 if none."
+                        value={formData.other_annual_income || undefined}
+                        onChange={(v) => updateField('other_annual_income', v ?? 0)}
+                    />
+                    <NumberInput
+                        id="seller_age"
+                        label="Seller's age"
+                        hint="OAS clawback (15% recovery tax) applies at age 65+ if net income exceeds the annual threshold."
+                        value={formData.seller_age || undefined}
+                        onChange={(v) => updateField('seller_age', v ?? 0)}
+                    />
+                </Row>
+            </Section>
+
+            {/* Principal Residence */}
+            <Section title="Principal Residence Exemption">
+                <ToggleChips
+                    id="principal_residence"
+                    label="Was this property ever your principal residence?"
+                    hint="If yes, part or all of the capital gain may be tax-exempt."
+                    value={formData.principal_residence}
+                    onChange={(v) => updateField('principal_residence', v)}
                 />
+                {formData.principal_residence && (
+                    <>
+                        <PercentageInput
+                            id="pre_use_pct"
+                            label="% of property used as principal residence"
+                            hint="100% if the entire property was your home. For a duplex where you occupied one unit, enter the portion (e.g. 40)."
+                            value={formData.pre_use_pct}
+                            onChange={(v) => updateField('pre_use_pct', v)}
+                        />
+                        <Row>
+                            <NumberInput
+                                id="years_principal_residence"
+                                label="Years designated as principal residence"
+                                hint="Count only years you ordinarily inhabited it as your main home."
+                                value={formData.years_principal_residence ?? undefined}
+                                onChange={(v) => updateField('years_principal_residence', v)}
+                                required
+                            />
+                            <NumberInput
+                                id="years_owned"
+                                label="Total years owned"
+                                value={formData.years_owned ?? undefined}
+                                onChange={(v) => updateField('years_owned', v)}
+                                required
+                            />
+                        </Row>
+                    </>
+                )}
             </Section>
 
             {/* Submit */}

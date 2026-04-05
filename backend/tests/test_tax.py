@@ -15,12 +15,17 @@ from app.calculators.tax import (
     provincial_tax,
     combined_tax,
     marginal_tax_on_income,
+    compute_oas_clawback,
 )
 from app.calculators.tax_config import (
     FEDERAL_BRACKETS_2026,
     QUEBEC_BRACKETS_2026,
     FEDERAL_BPA_2026,
     QUEBEC_BPA_2026,
+    OAS_CLAWBACK_THRESHOLD_2026,
+    OAS_CLAWBACK_RATE,
+    OAS_MAX_ANNUAL_65_74,
+    OAS_MAX_ANNUAL_75_PLUS,
 )
 
 
@@ -188,3 +193,62 @@ class TestMarginalTaxOnIncome:
         assert result["federal"] >= 0.0
         assert result["provincial"] >= 0.0
         assert result["total"] >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# compute_oas_clawback
+# ---------------------------------------------------------------------------
+
+
+class TestComputeOasClawback:
+    def test_under_65_no_clawback(self):
+        # Age 64 — OAS not yet received, zero clawback regardless of income
+        assert compute_oas_clawback(0.0, 500_000.0, age=64) == pytest.approx(0.0)
+
+    def test_age_65_no_clawback_below_threshold(self):
+        # Total income below threshold → no clawback
+        assert compute_oas_clawback(0.0, OAS_CLAWBACK_THRESHOLD_2026 - 1, age=65) == pytest.approx(0.0)
+
+    def test_age_65_incremental_clawback(self):
+        # Base $80k, additional $50k → total $130k
+        # Incremental clawback = 15% of ($130k - threshold) - 15% of max(0, $80k - threshold)
+        # Assuming threshold > $80k: clawback_on_base = 0
+        # clawback_on_total = min(OAS_MAX_65_74, (130k - threshold) * 0.15)
+        base = 80_000.0
+        additional = 50_000.0
+        total = base + additional
+        expected_on_total = min(OAS_MAX_ANNUAL_65_74, max(0.0, total - OAS_CLAWBACK_THRESHOLD_2026) * OAS_CLAWBACK_RATE)
+        expected_on_base = min(OAS_MAX_ANNUAL_65_74, max(0.0, base - OAS_CLAWBACK_THRESHOLD_2026) * OAS_CLAWBACK_RATE)
+        expected = max(0.0, expected_on_total - expected_on_base)
+        assert compute_oas_clawback(base, additional, age=65) == pytest.approx(expected, rel=1e-6)
+
+    def test_clawback_capped_at_max_benefit_65_74(self):
+        # Very high income — clawback should not exceed maximum OAS benefit
+        result = compute_oas_clawback(0.0, 2_000_000.0, age=70)
+        assert result <= OAS_MAX_ANNUAL_65_74 + 1e-6
+
+    def test_clawback_capped_at_max_benefit_75_plus(self):
+        # 75+ receives a higher supplement
+        result = compute_oas_clawback(0.0, 2_000_000.0, age=75)
+        assert result <= OAS_MAX_ANNUAL_75_PLUS + 1e-6
+
+    def test_age_75_higher_cap_than_65(self):
+        # Same income, age 75+ should have same or higher clawback cap
+        clawback_65 = compute_oas_clawback(0.0, 2_000_000.0, age=65)
+        clawback_75 = compute_oas_clawback(0.0, 2_000_000.0, age=75)
+        assert clawback_75 >= clawback_65
+
+    def test_incremental_only_above_base(self):
+        # Base income already above threshold — only the portion above baseline
+        # clawback should be captured, not re-taxing the base portion
+        base = OAS_CLAWBACK_THRESHOLD_2026 + 10_000.0
+        additional = 5_000.0
+        result = compute_oas_clawback(base, additional, age=67)
+        # Incremental: 15% of $5,000 additional = $750 (below OAS max)
+        assert result == pytest.approx(additional * OAS_CLAWBACK_RATE, rel=1e-6)
+
+    def test_zero_additional_income_no_clawback(self):
+        assert compute_oas_clawback(50_000.0, 0.0, age=68) == pytest.approx(0.0)
+
+    def test_non_negative(self):
+        assert compute_oas_clawback(0.0, 100_000.0, age=66) >= 0.0
